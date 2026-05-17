@@ -153,6 +153,7 @@ class LLMClient:
         body = {
             "model": self.settings.llm_model,
             "stream": False,
+            "format": "json",
             "options": {
                 "temperature": 0.1,
             },
@@ -164,7 +165,7 @@ class LLMClient:
         try:
             with httpx.Client(timeout=self.settings.llm_timeout) as client:
                 r = client.post(url, json=body)
-                print(f"[OLLAMA RAW PROMPT] status_code={r.status_code}")
+                print(f"[OLLAMA GENERATE] status_code={r.status_code}")
                 r.raise_for_status()
                 data = r.json()
 
@@ -172,13 +173,13 @@ class LLMClient:
             text = message.get("content") or ""
 
             print("\n[LLM RAW OUTPUT - OLLAMA / GENERATE]")
-            print(text[:1500])
+            print(repr(text[:500]))
             print()
 
             return text
 
         except Exception as e:
-            print(f"[OLLAMA RAW PROMPT] request error: {e}")
+            print(f"[OLLAMA GENERATE] request error: {e}")
             return "{}"
 
 

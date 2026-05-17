@@ -21,15 +21,38 @@ def print_hits(title: str, hits: list[dict], limit: int = 10) -> None:
         print(f"    venue             : {h.get('venue')}")
         print(f"    doi               : {h.get('doi')}")
         print(f"    score             : {round(float(h.get('score', 0.0)), 4)}")
+
         if "rerank_score" in h:
             print(f"    rerank_score      : {round(float(h.get('rerank_score', 0.0)), 4)}")
+
+       
+        if "semantic_score" in h:
+            print(f"    semantic_score    : {round(float(h.get('semantic_score', 0.0)), 4)}")
+
+        if "semantic_score_norm" in h:
+            print(f"    semantic_norm     : {round(float(h.get('semantic_score_norm', 0.0)), 4)}")
+
+        if "heuristic_score_norm" in h:
+            print(f"    heuristic_norm    : {round(float(h.get('heuristic_score_norm', 0.0)), 4)}")
+
+        if "final_rerank_score" in h:
+            print(f"    final_rerank      : {round(float(h.get('final_rerank_score', 0.0)), 4)}")
+
         print(f"    has_full_text     : {h.get('has_full_text')}")
         print(f"    full_text_source  : {h.get('full_text_source')}")
         print(f"    oa_url            : {h.get('oa_url')}")
+
         abstract = (h.get("abstract") or "")[:220]
         preview = (h.get("full_text_preview") or "")[:220]
+        reasoning = (h.get("reasoning_text") or "")[:220]
+
         print(f"    abstract_preview  : {abstract}")
         print(f"    full_text_preview : {preview}")
+
+        # 🔥 NUEVO: ver reasoning_text
+        if reasoning:
+            print(f"    reasoning_text    : {reasoning}")
+
         print()
 
 
@@ -53,14 +76,12 @@ def main() -> None:
     local_raw = search.search(query, k=max(k * 3, 15), include_text=True)
     print_hits("LOCAL RAW HITS", local_raw, limit=10)
 
-    # 2) hits locales rerankeados
-    local_reranked = svc._get_candidate_hits.__self__.search.search(query, k=max(k * 3, 15), include_text=True)
-    # arriba no queremos lógica rara; mejor reutilizar reranker directamente vía AnswerService imports internos
+    # 2) hits locales rerankeados (heurístico)
     from ai_consensus_clone.core.ranking.reranker import rerank_hits
     local_after_rerank = rerank_hits(query, local_raw)
-    print_hits("LOCAL RERANKED HITS", local_after_rerank, limit=10)
+    print_hits("LOCAL RERANKED HITS (HEURISTIC)", local_after_rerank, limit=10)
 
-    # 3) decide si necesita fallback online
+    # 3) decidir fallback online
     needs_online = svc._needs_online_fallback(local_after_rerank)
     print("\n" + "=" * 100)
     print("ONLINE FALLBACK DECISION")
@@ -71,17 +92,21 @@ def main() -> None:
     online_hits = svc._fetch_online_hits(query, n=max(k * 2, 8)) if needs_online else []
     print_hits("ONLINE HITS", online_hits, limit=10)
 
-    # 5) combinados antes de rerank final
+    # 5) combinados + dedupe
     combined = list(local_after_rerank)
     combined.extend(online_hits)
     deduped = svc._dedupe_hits(combined)
     print_hits("COMBINED DEDUPED HITS", deduped, limit=12)
 
-    # 6) rerank final
+    # 🔥 6) aplicar rerank semántico explícito (DEBUG CLAVE)
+    semantic_hits = svc.semantic_reranker.rerank(query, deduped)
+    print_hits("AFTER SEMANTIC + HEURISTIC RERANK", semantic_hits, limit=12)
+
+    # 7) hits finales (lo que usa /answer)
     final_hits = svc._get_candidate_hits(query, k=k)
     print_hits("FINAL HITS USED BY /answer", final_hits, limit=k)
 
-    # 7) respuesta final
+    # 8) respuesta final
     result = svc.answer(query, k=k)
 
     print("\n" + "=" * 100)

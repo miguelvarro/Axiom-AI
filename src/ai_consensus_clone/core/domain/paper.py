@@ -14,7 +14,13 @@ class Paper(BaseModel):
     authors: List[str] = Field(default_factory=list)
     full_text_source: Optional[str] = None
     pmc_url: Optional[str] = None
-    citation_count: Optional[int] = None
+    
 
     full_text_preview: Optional[str] = None
     full_text_quality_score: float = 0.0
+    citation_count: Optional[int] = None
+    
+    results_text: Optional[str] = None
+    discussion_text: Optional[str] = None
+    conclusion_text: Optional[str] = None
+    reasoning_text: Optional[str] = None

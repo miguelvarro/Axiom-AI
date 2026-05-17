@@ -5,6 +5,7 @@ from typing import Dict, Any, List, Tuple, Optional
 
 from ai_consensus_clone.core.domain.paper import Paper
 from ai_consensus_clone.core.ranking.reranker import rerank_hits
+from ai_consensus_clone.core.ranking.semantic_reranker import SemanticReranker
 from ai_consensus_clone.core.reasoning.evidence_extractor import extract_evidence_spans
 from ai_consensus_clone.core.retrieval.bm25 import BM25Search
 from ai_consensus_clone.core.retrieval.online import OnlinePaperRetriever
@@ -12,6 +13,12 @@ from ai_consensus_clone.utils.text import clean_text
 from ai_consensus_clone.core.reasoning.prompt_loader import load_prompt
 from ai_consensus_clone.core.reasoning.stance_classifier import classify_papers_stances
 from ai_consensus_clone.core.reasoning.llm_client import LLMClient
+from ai_consensus_clone.core.reasoning.query_analyzer import analyze_query
+from ai_consensus_clone.core.reasoning.confidence import compute_confidence_score
+#from ai_consensus_clone.core.reasoning.outcome_matcher import (
+ #   detect_query_outcome,
+  #  compute_outcome_match_score,
+#)
 
 try:
     from ai_consensus_clone.core.reasoning.llm_client import build_consensus_answer_with_llm
@@ -89,6 +96,7 @@ class AnswerService:
     ):
         self.search = search
         self.online_retriever = online_retriever
+        self.semantic_reranker = SemanticReranker()
 
     def _question_mode(self, q: str) -> str:
         ql = clean_text(q).lower()
@@ -190,6 +198,7 @@ class AnswerService:
     def _paper_to_hit(self, paper: Paper, score: float = 0.0) -> Dict[str, Any]:
         full_text = clean_text(paper.full_text or "")
         abstract = clean_text(paper.abstract or "")
+        reasoning_text = clean_text(getattr(paper, "reasoning_text", None) or "")
 
         return {
             "paper_id": paper.paper_id,
@@ -202,6 +211,7 @@ class AnswerService:
             "abstract": abstract,
             "has_full_text": bool(full_text.strip()),
             "full_text_preview": full_text[:4000] if full_text else "",
+            "reasoning_text": reasoning_text[:4000] if reasoning_text else "",
             "oa_url": paper.oa_url,
             "full_text_source": paper.full_text_source,
         }
@@ -215,7 +225,12 @@ class AnswerService:
                     paper_id=h.get("paper_id", ""),
                     title=clean_text(h.get("title") or ""),
                     abstract=clean_text(h.get("abstract") or "") or None,
-                    full_text=clean_text(h.get("full_text_preview") or "") or None,
+                    full_text=(
+                    clean_text(h.get("reasoning_text") or "")
+                    or clean_text(h.get("full_text_preview") or "")
+                    or clean_text(h.get("abstract") or "")
+                    or None
+                    ),
                     year=h.get("year"),
                     venue=h.get("venue"),
                     doi=h.get("doi"),
@@ -225,12 +240,17 @@ class AnswerService:
                     full_text_source=h.get("full_text_source"),
                     pmc_url=None,
                     citation_count=h.get("citation_count"),
+                    reasoning_text=clean_text(h.get("reasoning_text") or "") or None,
                 )
             )
 
         return papers
 
-    def _aggregate_paper_stances(self, paper_stances: List[Any]) -> Dict[str, Any]:
+    def _aggregate_paper_stances(
+        self,
+        paper_stances: List[Any],
+    ) -> Dict[str, Any]:
+
         counts = Counter()
 
         for ps in paper_stances:
@@ -241,25 +261,26 @@ class AnswerService:
         support = counts.get("support", 0)
         contradict = counts.get("contradict", 0)
         neutral = counts.get("neutral", 0)
+        total = support + contradict + neutral
+        effective_total = support + contradict
 
-        dominant_stance = "neutral"
-        max_count = max(support, contradict, neutral)
-
-        tied = [
-            label for label, value in {
-                "support": support,
-                "contradict": contradict,
-                "neutral": neutral,
-            }.items()
-            if value == max_count
-        ]
-
-        if max_count == 0:
+        if effective_total == 0:
             dominant_stance = "neutral"
-        elif len(tied) == 1:
-            dominant_stance = tied[0]
         else:
-            dominant_stance = "mixed"
+            support_ratio = support / effective_total
+            contradict_ratio = contradict / effective_total
+
+            # Umbral adaptativo: con pocos papers basta mayoría simple
+            threshold = 0.60 if total <= 5 else 0.67
+
+            if support_ratio >= threshold:
+                dominant_stance = "support"
+            elif contradict_ratio >= threshold:
+                dominant_stance = "contradict"
+            elif effective_total >= 2:
+                dominant_stance = "mixed"
+            else:
+                dominant_stance = "neutral"
 
         return {
             "support": support,
@@ -267,7 +288,6 @@ class AnswerService:
             "neutral": neutral,
             "dominant_stance": dominant_stance,
         }
-
     def _build_conclusion_from_stance_breakdown(
         self,
         q: str,
@@ -288,7 +308,11 @@ class AnswerService:
         insufficient = counts.get("insufficient", 0)
 
         unique_papers = len({ev["paper_id"] for ev in evidences})
-        avg_score = sum(ev["score"] for ev in evidences) / max(1, len(evidences)) if evidences else 0.0
+        avg_score = (
+            sum(ev["score"] for ev in evidences) / max(1, len(evidences))
+            if evidences
+            else 0.0
+        )
 
         confidence = self._compute_confidence(
             n_hits=n_hits,
@@ -310,32 +334,26 @@ class AnswerService:
                 "baja",
             )
 
-        if dominant_stance == "support":
-            if contradict >= 1:
-                return (
-                    clean_text(
-                        "En conjunto, la mayoría de los artículos recuperados apoyan la hipótesis planteada, aunque existe cierta evidencia no concluyente o parcialmente contradictoria."
-                    ),
-                    confidence,
-                )
+        if contradict >= 1 and support == 0:
             return (
                 clean_text(
-                    "En conjunto, la mayoría de los artículos recuperados apoyan la hipótesis planteada."
+                    "La evidencia disponible indica que la hipótesis es probablemente incorrecta."
+                ),
+                confidence,
+            )
+
+        if dominant_stance == "support":
+            return (
+                clean_text(
+                    "En conjunto, los artículos con señal directa apoyan la hipótesis planteada, aunque puede haber evidencia no concluyente."
                 ),
                 confidence,
             )
 
         if dominant_stance == "contradict":
-            if support >= 1:
-                return (
-                    clean_text(
-                        "En conjunto, la mayoría de los artículos recuperados no apoyan la hipótesis planteada, aunque existe alguna evidencia a favor."
-                    ),
-                    confidence,
-                )
             return (
                 clean_text(
-                    "En conjunto, la mayoría de los artículos recuperados no apoyan la hipótesis planteada."
+                    "En conjunto, los artículos con señal directa no apoyan la hipótesis planteada."
                 ),
                 confidence,
             )
@@ -344,24 +362,25 @@ class AnswerService:
             if mode == "mixed_check":
                 return (
                     clean_text(
-                        "La evidencia recuperada es mixta: los artículos no apuntan todos en la misma dirección y el conjunto no permite una conclusión uniforme."
+                        "La evidencia recuperada es mixta: hay artículos con señales en direcciones distintas y el conjunto no permite una conclusión uniforme."
                     ),
                     confidence,
                 )
             return (
                 clean_text(
-                    "La evidencia recuperada es mixta o inconsistente: distintos artículos apuntan en direcciones diferentes."
+                    "La evidencia recuperada es inconsistente: distintos artículos apuntan en direcciones diferentes."
                 ),
                 confidence,
             )
 
-        if neutral > 0 and support == 0 and contradict == 0:
-            return (
-                clean_text(
-                    "La mayoría de los artículos recuperados no responden de forma directa o concluyente a la pregunta planteada."
-                ),
-                "baja",
-            )
+        if dominant_stance == "neutral":
+            if neutral > 0 and support == 0 and contradict == 0:
+                return (
+                    clean_text(
+                        "La evidencia disponible es insuficiente o no aborda directamente la pregunta planteada."
+                    ),
+                    "baja",
+                )
 
         return (
             clean_text(
@@ -424,14 +443,23 @@ class AnswerService:
                 "title",
                 "paper_id",
                 "citation_count",
+                "reasoning_text",
             ):
-                if merged.get(field) in (None, "", []) and other.get(field) not in (None, "", []):
+                if merged.get(field) in (None, "", []) and other.get(field) not in (
+                    None,
+                    "",
+                    [],
+                ):
                     merged[field] = other.get(field)
 
-            if not (merged.get("full_text_preview") or "").strip() and (other.get("full_text_preview") or "").strip():
+            if not (merged.get("full_text_preview") or "").strip() and (
+                other.get("full_text_preview") or ""
+            ).strip():
                 merged["full_text_preview"] = other.get("full_text_preview")
 
-            merged["has_full_text"] = bool((merged.get("full_text_preview") or "").strip()) or bool(merged.get("has_full_text"))
+            merged["has_full_text"] = bool(
+                (merged.get("full_text_preview") or "").strip()
+            ) or bool(merged.get("has_full_text"))
 
             best_source = (merged.get("full_text_source") or "").strip().lower()
             other_source = (other.get("full_text_source") or "").strip().lower()
@@ -519,15 +547,26 @@ class AnswerService:
             combined.extend(online_hits)
 
         combined = self._dedupe_hits(combined)
+
         combined = rerank_hits(q, combined)
+        combined = self.semantic_reranker.rerank(q, combined)
 
         return combined[:k]
 
-    def _extract_evidences_from_hits(self, q: str, hits: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _extract_evidences_from_hits(
+        self,
+        q: str,
+        hits: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
         all_evidences: List[Dict[str, Any]] = []
 
         for h in hits:
-            base_text = h.get("full_text_preview") or h.get("abstract") or ""
+            base_text = (
+                h.get("reasoning_text")
+                or h.get("full_text_preview")
+                or h.get("abstract")
+                or ""
+            )
             base_text = clean_text(base_text)
 
             if not base_text.strip():
@@ -594,12 +633,17 @@ class AnswerService:
 
     def answer(self, q: str, k: int = 8) -> Dict[str, Any]:
         hits = self._get_candidate_hits(q, k=k)
+        query_analysis = analyze_query(q)
 
         if not hits:
             return {
                 "q": q,
-                "conclusion": clean_text("No se han encontrado artículos relevantes con el dataset actual."),
+                "conclusion": clean_text(
+                    "No se han encontrado artículos relevantes con el dataset actual."
+                ),
                 "confidence": "baja",
+                "confidence_score": 0.0,
+                "confidence_factors": {},
                 "citations": [],
                 "evidences": [],
                 "paper_stances": [],
@@ -609,6 +653,7 @@ class AnswerService:
                     "neutral": 0,
                     "dominant_stance": "neutral",
                 },
+                "query_analysis": query_analysis.model_dump(),
             }
 
         citations: List[Dict[str, Any]] = [
@@ -623,9 +668,27 @@ class AnswerService:
 
         evidences = self._extract_evidences_from_hits(q, hits)
 
+       # query_outcome = detect_query_outcome(q)
+       # filtered_evidences: List[Dict[str, Any]] = []
+
+        #for ev in evidences:
+         #   outcome_score = compute_outcome_match_score(
+          #      query_outcome=query_outcome,
+           #     paper_text=ev.get("span", ""),
+            #)
+
+            #ev["outcome_match_score"] = outcome_score
+
+            #if outcome_score >= 0.5:
+             #   filtered_evidences.append(ev)
+
+        #if filtered_evidences:
+         #   evidences = filtered_evidences
+
         stance_prompt = load_prompt("stance_classification_prompt.txt")
         papers = self._hits_to_papers(hits)
         llm_client = LLMClient()
+
         paper_stances = classify_papers_stances(
             llm_client=llm_client,
             question=q,
@@ -635,14 +698,23 @@ class AnswerService:
 
         evidence_breakdown = self._aggregate_paper_stances(paper_stances)
 
-        conclusion, confidence = self._build_conclusion_from_stance_breakdown(
+        confidence_result = compute_confidence_score(
+            paper_stances=paper_stances,
+            evidence_breakdown=evidence_breakdown,
+            citations=citations,
+            evidences=evidences,
+        )
+
+        conclusion, fallback_confidence = self._build_conclusion_from_stance_breakdown(
             q=q,
             evidence_breakdown=evidence_breakdown,
             evidences=evidences,
             n_hits=len(hits),
         )
 
-        conclusion, confidence = self._try_llm_conclusion(
+        confidence = confidence_result["confidence"]
+
+        conclusion, _ = self._try_llm_conclusion(
             q=q,
             evidences=evidences,
             citations=citations,
@@ -654,8 +726,11 @@ class AnswerService:
             "q": q,
             "conclusion": conclusion,
             "confidence": confidence,
+            "confidence_score": confidence_result["confidence_score"],
+            "confidence_factors": confidence_result["confidence_factors"],
             "citations": citations,
             "evidences": evidences,
             "paper_stances": [s.to_dict() for s in paper_stances],
             "evidence_breakdown": evidence_breakdown,
+            "query_analysis": query_analysis.model_dump(),
         }

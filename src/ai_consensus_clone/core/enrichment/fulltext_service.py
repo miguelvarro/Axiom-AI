@@ -10,6 +10,8 @@ from ai_consensus_clone.core.enrichment.models import FullTextResult, Enrichment
 from ai_consensus_clone.core.enrichment.normalize import (
     normalize_full_text,
     ensure_non_empty_full_text,
+    extract_named_sections,
+    build_reasoning_text,
 )
 from ai_consensus_clone.core.enrichment.quality import looks_like_meaningful_full_text, quality_score
 
@@ -39,7 +41,7 @@ class FullTextService:
             paper.full_text = ensure_non_empty_full_text(paper.full_text, paper.abstract)
             if not paper.full_text_source and paper.full_text:
                 paper.full_text_source = "existing_full_text"
-            return paper
+            return self._populate_reasoning_fields(paper)
 
         decision = self.resolve(paper)
 
@@ -47,14 +49,31 @@ class FullTextService:
         if selected and selected.ok:
             paper.full_text = ensure_non_empty_full_text(selected.text, paper.abstract)
             paper.full_text_source = selected.source
+            paper.full_text_quality_score = float(selected.quality_score or 0.0)
             if selected.source == "pmc_html":
                 paper.pmc_url = selected.url
-            return paper
+            return self._populate_reasoning_fields(paper)
 
         fallback = ensure_non_empty_full_text(None, paper.abstract)
         if fallback:
             paper.full_text = fallback
             paper.full_text_source = "openalex_abstract"
+
+        return self._populate_reasoning_fields(paper)
+
+    def _populate_reasoning_fields(self, paper: Paper) -> Paper:
+        sections = extract_named_sections(paper.full_text)
+
+        paper.results_text = sections.get("results_text")
+        paper.discussion_text = sections.get("discussion_text")
+        paper.conclusion_text = sections.get("conclusion_text")
+        paper.reasoning_text = build_reasoning_text(
+            abstract=paper.abstract,
+            full_text=paper.full_text,
+            results_text=paper.results_text,
+            discussion_text=paper.discussion_text,
+            conclusion_text=paper.conclusion_text,
+        )
 
         return paper
 

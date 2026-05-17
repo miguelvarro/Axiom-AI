@@ -30,7 +30,7 @@ class BM25Search:
                 obj = orjson.loads(line)
                 p = Paper(**obj)
                 papers.append(p)
-                text = f"{p.title} {(p.abstract or '')} {(p.full_text or '')}"
+                text = f"{p.title} {(p.abstract or '')} {(p.reasoning_text or '')} {(p.full_text or '')}"
                 corpus_tokens.append(_tokenize(text))
         bm25 = BM25Okapi(corpus_tokens)
         return BM25Search(papers=papers, bm25=bm25, corpus_tokens=corpus_tokens)
@@ -42,7 +42,6 @@ class BM25Search:
             for p in self.papers:
                 f.write(orjson.dumps(p.model_dump()) + b"\n")
 
-        # Guardamos solo metadatos + corpus tokens si quieres acelerar.
         tokens_path = os.path.join(index_dir, "tokens.jsonl")
         with open(tokens_path, "w", encoding="utf-8") as f:
             for toks in self.corpus_tokens:
@@ -95,14 +94,18 @@ class BM25Search:
                 "venue": p.venue,
                 "doi": p.doi,
                 "score": float(scores[i]),
+                "citation_count": getattr(p, "citation_count", None),
             }
 
             if include_text:
                 abstract = p.abstract or ""
                 full_text = p.full_text or ""
+                reasoning_text = getattr(p, "reasoning_text", None) or ""
+
                 hit["abstract"] = abstract
                 hit["has_full_text"] = bool(full_text.strip())
                 hit["full_text_preview"] = full_text[:full_text_preview_chars] if full_text else ""
+                hit["reasoning_text"] = reasoning_text[:full_text_preview_chars] if reasoning_text else ""
                 hit["full_text_source"] = getattr(p, "full_text_source", None)
 
             hits.append(hit)

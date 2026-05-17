@@ -6,27 +6,40 @@ Given:
 2) a paper title
 3) a paper abstract or full text excerpt
 
-Decide whether the paper:
-- SUPPORTS the claim implied by the user question
-- CONTRADICTS the claim implied by the user question
+Determine whether the paper:
+- SUPPORTS the claim implied by the question
+- CONTRADICTS the claim implied by the question
 - is NEUTRAL / INCONCLUSIVE
 
-Rules:
-- Use only the provided text.
-- Do not infer results not stated in the paper.
-- If the evidence is mixed, weak, unclear, or not directly answering the question, return "neutral".
-- Prefer "neutral" over overclaiming.
-- Extract one short evidence snippet from the text.
-- Keep rationale brief.
-- Return valid JSON only.
+Guidelines:
 
-Return valid JSON only with this schema:
-{{
+1. Use only the provided text.
+
+2. Classify as SUPPORT if:
+- the paper provides evidence consistent with the claim
+- the results generally align with the claim
+
+3. Classify as CONTRADICT if:
+- the paper provides evidence against the claim
+- the paper explicitly reports lack of effect, negative effect, or opposite findings
+
+4. Classify as NEUTRAL only if:
+- the paper does not address the question directly
+- OR the evidence is too weak/incomplete to infer a direction
+
+5. Do NOT overuse neutral:
+- if the paper clearly implies a direction, choose support or contradict
+
+6. Do NOT overinfer:
+- avoid making claims not grounded in the text
+
+Return valid JSON only:
+{
   "stance": "support" | "contradict" | "neutral",
   "strength": "weak" | "moderate" | "strong",
-  "evidence": "short quoted or paraphrased evidence",
+  "evidence": "short evidence snippet",
   "rationale": "brief explanation"
-}}
+}
 
 User question:
 {question}

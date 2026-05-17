@@ -37,11 +37,23 @@ class EvidenceBreakdown(BaseModel):
     dominant_stance: str
 
 
+class QueryAnalysisSchema(BaseModel):
+    raw_query: str
+    query_type: str
+    population: Optional[str] = None
+    intervention: Optional[str] = None
+    outcome: Optional[str] = None
+    comparator: Optional[str] = None
+
+
 class AnswerResponse(BaseModel):
     q: str
     conclusion: str
     confidence: str
+    confidence_score: float
+    confidence_factors: dict
     citations: List[Citation]
     evidences: List[Evidence] = []
     paper_stances: List[PaperStanceSchema] = []
     evidence_breakdown: EvidenceBreakdown
+    query_analysis: QueryAnalysisSchema

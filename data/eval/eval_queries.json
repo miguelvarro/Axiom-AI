@@ -1,0 +1,18 @@
+[
+  {
+    "q": "Does creatine improve strength in older adults?",
+    "expected_stance": "support"
+  },
+  {
+    "q": "Is creatine effective for cognitive performance?",
+    "expected_stance": "mixed"
+  },
+  {
+    "q": "Does creatine cause kidney damage?",
+    "expected_stance": "contradict"
+  },
+  {
+    "q": "What dose of creatine should older adults take?",
+    "expected_stance": "neutral"
+  }
+]

@@ -1,0 +1,82 @@
+[
+  {
+    "question": "Does creatine improve strength in older adults?",
+    "expected_stance": "support"
+  },
+  {
+    "question": "Is creatine effective for cognitive performance?",
+    "expected_stance": "mixed"
+  },
+  {
+    "question": "Does creatine cause kidney damage?",
+    "expected_stance": "contradict"
+  },
+  {
+    "question": "What dose of creatine should older adults take?",
+    "expected_stance": "neutral"
+  },
+  {
+    "question": "Does creatine increase lean muscle mass?",
+    "expected_stance": "support"
+  },
+  {
+    "question": "Does creatine improve athletic performance?",
+    "expected_stance": "support"
+  },
+  {
+    "question": "Is creatine beneficial for women?",
+    "expected_stance": "support"
+  },
+  {
+    "question": "Does creatine improve recovery after exercise?",
+    "expected_stance": "mixed"
+  },
+  {
+    "question": "Does creatine supplementation help sarcopenia?",
+    "expected_stance": "support"
+  },
+  {
+    "question": "Is creatine associated with dehydration?",
+    "expected_stance": "contradict"
+  },
+  {
+    "question": "Does creatine improve anaerobic performance?",
+    "expected_stance": "support"
+  },
+  {
+    "question": "Can creatine improve fatigue resistance?",
+    "expected_stance": "mixed"
+  },
+  {
+    "question": "Does creatine increase body weight?",
+    "expected_stance": "support"
+  },
+  {
+    "question": "Is creatine unsafe for healthy adults?",
+    "expected_stance": "contradict"
+  },
+  {
+    "question": "Does creatine improve lower body strength?",
+    "expected_stance": "support"
+  },
+  {
+    "question": "Can creatine improve memory in older adults?",
+    "expected_stance": "mixed"
+  },
+  {
+    "question": "Does creatine improve sprint performance?",
+    "expected_stance": "support"
+  },
+  {
+    "question": "Does creatine improve endurance performance?",
+    "expected_stance": "mixed"
+  },
+  {
+    "question": "Does creatine supplementation improve bone density?",
+    "expected_stance": "mixed"
+  },
+  {
+    "question": "Is creatine useful without resistance training?",
+    "expected_stance": "mixed"
+  }
+]
