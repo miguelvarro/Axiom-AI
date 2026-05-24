@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Consensus</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    * { font-family: 'Inter', sans-serif; }
+
+    body { background: #f8fafc; }
+
+    .consensus-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+
+    .badge-support     { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+    .badge-contradict  { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
+    .badge-mixed       { background: #fef9c3; color: #a16207; border: 1px solid #fde68a; }
+    .badge-neutral     { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
+
+    .evidence-card {
+      border-left: 3px solid transparent;
+      transition: all 0.15s ease;
+    }
+    .evidence-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+    .evidence-support    { border-left-color: #22c55e; }
+    .evidence-contradict { border-left-color: #ef4444; }
+    .evidence-neutral    { border-left-color: #94a3b8; }
+
+    .paper-card {
+      transition: all 0.15s ease;
+    }
+    .paper-card:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+
+    .confidence-bar {
+      height: 6px;
+      border-radius: 999px;
+      background: #e2e8f0;
+      overflow: hidden;
+    }
+    .confidence-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.6s ease;
+    }
+
+    .spinner {
+      width: 32px; height: 32px;
+      border: 3px solid #e2e8f0;
+      border-top-color: #6366f1;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .section-tab {
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      border: 1px solid transparent;
+    }
+    .section-tab.active   { background: white; box-shadow: 0 1px 4px rgba(0,0,0,0.1); border-color: #e2e8f0; }
+    .section-tab.inactive { color: #64748b; }
+    .section-tab.inactive:hover { background: #f1f5f9; }
+
+    .search-input:focus { outline: none; box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+
+    .fade-in { animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .tag-support    { background: #dcfce7; color: #15803d; }
+    .tag-contradict { background: #fee2e2; color: #b91c1c; }
+    .tag-neutral    { background: #f1f5f9; color: #64748b; }
+  </style>
+</head>
+<body class="min-h-screen">
+
+  <!-- HEADER -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-50">
+    <div class="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+            <path d="M9 12l2 2 4-4"/>
+            <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2z"/>
+          </svg>
+        </div>
+        <span class="font-semibold text-slate-800 text-lg">AI Consensus</span>
+        <span class="text-xs text-slate-400 ml-1 font-normal">Research Assistant</span>
+      </div>
+      <a href="http://localhost:8000/docs" target="_blank"
+         class="text-xs text-slate-400 hover:text-indigo-600 transition-colors flex items-center gap-1">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+        </svg>
+        API Docs
+      </a>
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <main class="max-w-4xl mx-auto px-6 py-10">
+
+    <!-- HERO + SEARCH -->
+    <div id="hero" class="text-center mb-10">
+      <h1 class="text-3xl font-bold text-slate-900 mb-2">Search the scientific literature</h1>
+      <p class="text-slate-500 text-base mb-8">Ask a question and get evidence-based answers from peer-reviewed research.</p>
+
+      <div class="flex gap-3 max-w-2xl mx-auto">
+        <div class="flex-1 relative">
+          <svg class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" width="18" height="18"
+               viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+          <input id="query-input" type="text"
+                 placeholder="Does creatine improve muscle strength?"
+                 class="search-input w-full pl-11 pr-4 py-3.5 rounded-xl border border-slate-200 bg-white text-slate-800 text-sm shadow-sm"
+                 onkeydown="if(event.key==='Enter') handleSearch()" />
+        </div>
+        <button onclick="handleSearch()"
+                class="px-6 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm whitespace-nowrap">
+          Ask AI
+        </button>
+      </div>
+
+      <!-- EXAMPLE QUERIES -->
+      <div class="flex flex-wrap justify-center gap-2 mt-4">
+        <span class="text-xs text-slate-400 self-center">Try:</span>
+        <button onclick="setQuery('Does creatine improve strength in older adults?')"
+                class="text-xs text-indigo-600 hover:bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 transition-colors">
+          Strength in older adults
+        </button>
+        <button onclick="setQuery('Does creatine cause kidney damage?')"
+                class="text-xs text-indigo-600 hover:bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 transition-colors">
+          Kidney safety
+        </button>
+        <button onclick="setQuery('Is creatine effective for cognitive performance?')"
+                class="text-xs text-indigo-600 hover:bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 transition-colors">
+          Cognitive performance
+        </button>
+        <button onclick="setQuery('Does creatine improve endurance performance?')"
+                class="text-xs text-indigo-600 hover:bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 transition-colors">
+          Endurance
+        </button>
+      </div>
+    </div>
+
+    <!-- LOADING -->
+    <div id="loading" class="hidden flex-col items-center justify-center py-20 gap-4">
+      <div class="spinner"></div>
+      <p class="text-slate-500 text-sm" id="loading-text">Analyzing scientific literature…</p>
+    </div>
+
+    <!-- ERROR -->
+    <div id="error-box" class="hidden bg-red-50 border border-red-200 rounded-xl p-5 text-sm text-red-700 mb-6 flex items-start gap-3">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="flex-shrink-0 mt-0.5">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <span id="error-msg"></span>
+    </div>
+
+    <!-- RESULTS -->
+    <div id="results" class="hidden fade-in space-y-6">
+
+      <!-- CONSENSUS CARD -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+
+        <!-- Question bar -->
+        <div class="px-6 pt-5 pb-4 border-b border-slate-100">
+          <p class="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">Question</p>
+          <p id="result-question" class="text-slate-800 font-semibold text-lg leading-snug"></p>
+        </div>
+
+        <!-- Consensus summary -->
+        <div class="px-6 py-5">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+
+            <!-- Left: badge + label -->
+            <div class="flex flex-col gap-3">
+              <div id="consensus-badge"></div>
+              <p id="consensus-label-text" class="text-slate-500 text-sm max-w-md leading-relaxed"></p>
+            </div>
+
+            <!-- Right: stats -->
+            <div class="flex gap-6 text-center">
+              <div>
+                <p id="stat-support" class="text-2xl font-bold text-emerald-600">0</p>
+                <p class="text-xs text-slate-400 font-medium mt-0.5">Supporting</p>
+              </div>
+              <div class="w-px bg-slate-100"></div>
+              <div>
+                <p id="stat-contradict" class="text-2xl font-bold text-red-500">0</p>
+                <p class="text-xs text-slate-400 font-medium mt-0.5">Contradicting</p>
+              </div>
+              <div class="w-px bg-slate-100"></div>
+              <div>
+                <p id="stat-neutral" class="text-2xl font-bold text-slate-400">0</p>
+                <p class="text-xs text-slate-400 font-medium mt-0.5">Neutral</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Confidence bar -->
+          <div class="mt-5 pt-4 border-t border-slate-100">
+            <div class="flex justify-between items-center mb-2">
+              <span class="text-xs font-medium text-slate-500">Confidence</span>
+              <span id="confidence-label" class="text-xs font-semibold text-slate-600"></span>
+            </div>
+            <div class="confidence-bar">
+              <div id="confidence-fill" class="confidence-fill bg-indigo-400" style="width:0%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI CONCLUSION -->
+      <div class="bg-indigo-50 border border-indigo-100 rounded-2xl px-6 py-5">
+        <div class="flex items-center gap-2 mb-3">
+          <div class="w-6 h-6 bg-indigo-600 rounded-md flex items-center justify-center">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+          </div>
+          <span class="text-sm font-semibold text-indigo-900">AI Synthesis</span>
+        </div>
+        <p id="conclusion-text" class="text-slate-700 text-sm leading-relaxed"></p>
+      </div>
+
+      <!-- CONTRADICTION WARNING -->
+      <div id="contradiction-box" class="hidden bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 flex items-start gap-3">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" class="flex-shrink-0 mt-0.5">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        <p id="contradiction-text" class="text-amber-800 text-sm leading-relaxed"></p>
+      </div>
+
+      <!-- TOP PAPERS + EVIDENCE TABS -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="px-6 pt-5 pb-0">
+          <h2 class="text-sm font-semibold text-slate-700 mb-4">Evidence</h2>
+          <div class="flex gap-1 bg-slate-50 rounded-lg p-1 w-fit">
+            <button onclick="switchTab('papers')" id="tab-papers"
+                    class="section-tab active">📄 Papers</button>
+            <button onclick="switchTab('supporting')" id="tab-supporting"
+                    class="section-tab inactive">✅ Supporting</button>
+            <button onclick="switchTab('contradicting')" id="tab-contradicting"
+                    class="section-tab inactive">❌ Contradicting</button>
+            <button onclick="switchTab('neutral')" id="tab-neutral"
+                    class="section-tab inactive">➖ Neutral</button>
+          </div>
+        </div>
+
+        <div class="px-6 py-5">
+
+          <!-- PAPERS TAB -->
+          <div id="panel-papers" class="space-y-3"></div>
+
+          <!-- SUPPORTING TAB -->
+          <div id="panel-supporting" class="hidden space-y-3"></div>
+
+          <!-- CONTRADICTING TAB -->
+          <div id="panel-contradicting" class="hidden space-y-3"></div>
+
+          <!-- NEUTRAL TAB -->
+          <div id="panel-neutral" class="hidden space-y-3"></div>
+
+        </div>
+      </div>
+
+    </div>
+    <!-- /results -->
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="mt-16 py-6 border-t border-slate-100 text-center text-xs text-slate-400">
+    AI Consensus Clone · Built with FastAPI + BM25 + LLM reasoning
+  </footer>
+
+<script>
+const API_BASE = 'http://localhost:8000';
+let currentTab = 'papers';
+let lastData = null;
+
+// ── Utils ───────────────────────────────────────────────
+function setQuery(q) {
+  document.getElementById('query-input').value = q;
+  document.getElementById('query-input').focus();
+}
+
+function show(id)  { document.getElementById(id).classList.remove('hidden'); }
+function hide(id)  { document.getElementById(id).classList.add('hidden'); }
+function text(id, v) { document.getElementById(id).textContent = v; }
+
+function showError(msg) {
+  hide('loading');
+  text('error-msg', msg);
+  show('error-box');
+}
+
+// ── Consensus badge ─────────────────────────────────────
+function buildBadge(stance, label) {
+  const icons = {
+    support:    { icon: '↑', cls: 'badge-support' },
+    contradict: { icon: '↓', cls: 'badge-contradict' },
+    mixed:      { icon: '⇅', cls: 'badge-mixed' },
+    neutral:    { icon: '–', cls: 'badge-neutral' },
+  };
+  const s = stance || 'neutral';
+  const { icon, cls } = icons[s] || icons.neutral;
+  return `<span class="consensus-badge ${cls}"><span>${icon}</span><span>${label || 'Insufficient evidence'}</span></span>`;
+}
+
+// ── Confidence ───────────────────────────────────────────
+function renderConfidence(confidence, confidenceScore) {
+  const labelMap = { alta: 'High', media: 'Moderate', baja: 'Low' };
+  const colorMap = { alta: 'bg-emerald-400', media: 'bg-indigo-400', baja: 'bg-amber-400' };
+
+  const label = labelMap[confidence] || confidence || 'Low';
+  const pct   = Math.round((confidenceScore || 0) * 100);
+  const color = colorMap[confidence] || 'bg-slate-400';
+
+  text('confidence-label', `${label} · ${pct}%`);
+  const fill = document.getElementById('confidence-fill');
+  fill.style.width = pct + '%';
+  fill.className = `confidence-fill ${color}`;
+}
+
+// ── Paper card ───────────────────────────────────────────
+function paperCard(p) {
+  const stanceTag = p.stance ? `
+    <span class="tag tag-${p.stance}">${p.stance}</span>
+  ` : '';
+  const doi = p.doi
+    ? `<a href="https://doi.org/${p.doi}" target="_blank"
+          class="text-indigo-500 hover:text-indigo-700 text-xs transition-colors">doi:${p.doi}</a>`
+    : '';
+  const weight = p.weight != null
+    ? `<span class="text-xs text-slate-400">weight ${p.weight.toFixed(3)}</span>` : '';
+
+  return `
+    <div class="paper-card bg-slate-50 hover:bg-white rounded-xl p-4 border border-slate-100 cursor-default">
+      <div class="flex items-start justify-between gap-3">
+        <p class="text-slate-800 text-sm font-medium leading-snug flex-1">${p.title || 'Untitled'}</p>
+        ${stanceTag}
+      </div>
+      <div class="flex items-center gap-3 mt-2 flex-wrap">
+        ${doi}
+        ${weight}
+      </div>
+    </div>`;
+}
+
+// ── Evidence card ─────────────────────────────────────────
+function evidenceCard(ev, stance) {
+  const s = stance || 'neutral';
+  const doi = ev.doi
+    ? `<a href="https://doi.org/${ev.doi}" target="_blank"
+          class="text-indigo-500 hover:text-indigo-700 text-xs transition-colors">↗ Source</a>`
+    : '';
+  const year = ev.year ? `<span class="text-xs text-slate-400">${ev.year}</span>` : '';
+
+  return `
+    <div class="evidence-card evidence-${s} bg-white rounded-xl p-4 border border-slate-100 shadow-sm">
+      <p class="text-slate-500 text-xs font-medium mb-1 truncate">${ev.title || ''}</p>
+      <p class="text-slate-700 text-sm leading-relaxed italic">"${ev.span || ''}"</p>
+      <div class="flex items-center gap-3 mt-2">
+        ${year}
+        ${doi}
+      </div>
+    </div>`;
+}
+
+// ── Empty state ───────────────────────────────────────────
+function emptyState(msg) {
+  return `<div class="text-center py-8 text-slate-400 text-sm">${msg}</div>`;
+}
+
+// ── Tab switcher ──────────────────────────────────────────
+function switchTab(tab) {
+  const tabs   = ['papers','supporting','contradicting','neutral'];
+  const panels = ['papers','supporting','contradicting','neutral'];
+
+  tabs.forEach(t => {
+    const btn = document.getElementById(`tab-${t}`);
+    btn.classList.toggle('active',   t === tab);
+    btn.classList.toggle('inactive', t !== tab);
+  });
+  panels.forEach(p => {
+    const el = document.getElementById(`panel-${p}`);
+    el.classList.toggle('hidden', p !== tab);
+  });
+  currentTab = tab;
+}
+
+// ── Render results ────────────────────────────────────────
+function renderResults(data) {
+  lastData = data;
+
+  // Question
+  text('result-question', data.q || '');
+
+  // Badge
+  document.getElementById('consensus-badge').innerHTML =
+    buildBadge(data.dominant_stance, data.consensus_label);
+
+  // Consensus label description
+  const descriptions = {
+    'Strong positive evidence':   'Multiple studies consistently support this hypothesis.',
+    'Moderate positive evidence': 'Most evidence supports this hypothesis, though some variation exists.',
+    'Weak positive evidence':     'Limited evidence supports this hypothesis.',
+    'Strong negative evidence':   'Multiple studies consistently contradict this hypothesis.',
+    'Moderate negative evidence': 'Most evidence contradicts this hypothesis.',
+    'Weak negative evidence':     'Limited evidence contradicts this hypothesis.',
+    'Mixed evidence':             'Studies report conflicting findings with no clear consensus.',
+    'Insufficient evidence':      'Not enough evidence to draw a conclusion.',
+  };
+  text('consensus-label-text', descriptions[data.consensus_label] || '');
+
+  // Stats
+  const m = data.methodology || {};
+  text('stat-support',    m.supporting_papers    ?? 0);
+  text('stat-contradict', m.contradicting_papers ?? 0);
+  text('stat-neutral',    m.neutral_papers       ?? 0);
+
+  // Confidence
+  renderConfidence(data.confidence, data.confidence_numeric || data.confidence_score);
+
+  // Conclusion
+  text('conclusion-text', data.conclusion || 'No conclusion available.');
+
+  // Contradiction warning
+  if (data.contradictions_present && data.contradiction_summary) {
+    text('contradiction-text', data.contradiction_summary);
+    show('contradiction-box');
+  } else {
+    hide('contradiction-box');
+  }
+
+  // Papers panel
+  const topPapers = data.top_papers || [];
+  document.getElementById('panel-papers').innerHTML = topPapers.length
+    ? topPapers.map(p => paperCard(p)).join('')
+    : emptyState('No papers found.');
+
+  // Evidence panels
+  const supporting    = data.supporting_evidence    || [];
+  const contradicting = data.contradicting_evidence || [];
+  const neutral       = data.neutral_evidence       || [];
+
+  document.getElementById('panel-supporting').innerHTML = supporting.length
+    ? supporting.map(e => evidenceCard(e, 'support')).join('')
+    : emptyState('No supporting evidence found.');
+
+  document.getElementById('panel-contradicting').innerHTML = contradicting.length
+    ? contradicting.map(e => evidenceCard(e, 'contradict')).join('')
+    : emptyState('No contradicting evidence found.');
+
+  document.getElementById('panel-neutral').innerHTML = neutral.length
+    ? neutral.map(e => evidenceCard(e, 'neutral')).join('')
+    : emptyState('No neutral evidence found.');
+
+  // Update tab labels with counts
+  document.getElementById('tab-supporting').textContent    = `✅ Supporting (${supporting.length})`;
+  document.getElementById('tab-contradicting').textContent = `❌ Contradicting (${contradicting.length})`;
+  document.getElementById('tab-neutral').textContent       = `➖ Neutral (${neutral.length})`;
+  document.getElementById('tab-papers').textContent        = `📄 Papers (${topPapers.length})`;
+
+  // Reset to papers tab
+  switchTab('papers');
+
+  // Show results
+  hide('loading');
+  show('results');
+
+  // Scroll to results
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ── Loading messages rotation ─────────────────────────────
+const loadingMessages = [
+  'Retrieving scientific papers…',
+  'Ranking by relevance…',
+  'Classifying stance of each paper…',
+  'Computing consensus score…',
+  'Synthesizing conclusions…',
+];
+let loadingInterval = null;
+
+function startLoadingAnimation() {
+  let i = 0;
+  text('loading-text', loadingMessages[0]);
+  loadingInterval = setInterval(() => {
+    i = (i + 1) % loadingMessages.length;
+    text('loading-text', loadingMessages[i]);
+  }, 2500);
+}
+
+function stopLoadingAnimation() {
+  if (loadingInterval) clearInterval(loadingInterval);
+}
+
+// ── Main search handler ───────────────────────────────────
+async function handleSearch() {
+  const q = document.getElementById('query-input').value.trim();
+  if (!q) return;
+
+  // Reset UI
+  hide('results');
+  hide('error-box');
+  show('loading');
+  document.getElementById('loading').classList.add('flex');
+  document.getElementById('loading').classList.remove('hidden');
+  startLoadingAnimation();
+
+  try {
+    const res = await fetch(`${API_BASE}/answer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ q, k: 5 }),
+    });
+
+    stopLoadingAnimation();
+
+    if (!res.ok) {
+      const err = await res.text();
+      showError(`API error ${res.status}: ${err}`);
+      return;
+    }
+
+    const data = await res.json();
+    renderResults(data);
+
+  } catch (e) {
+    stopLoadingAnimation();
+    if (e.name === 'TypeError' && e.message.includes('fetch')) {
+      showError('Cannot connect to API at localhost:8000. Make sure your FastAPI server is running with: uvicorn ai_consensus_clone.app.api.main:app --reload');
+    } else {
+      showError(`Unexpected error: ${e.message}`);
+    }
+    hide('loading');
+  }
+}
+
+// Allow pressing Enter
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('query-input').focus();
+});
+</script>
+</body>
+</html>

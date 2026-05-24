@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Any
 
 
 class AnswerRequest(BaseModel):
@@ -14,27 +14,29 @@ class Citation(BaseModel):
     citation_count: Optional[int] = None
 
 
-class Evidence(BaseModel):
+class EvidenceItem(BaseModel):
     paper_id: str
+    title: Optional[str] = None
+    span: Optional[str] = None
+    score: Optional[float] = None
+    year: Optional[int] = None
+    venue: Optional[str] = None
+
+
+class TopPaper(BaseModel):
+    paper_id: str
+    title: Optional[str] = None
     doi: Optional[str] = None
-    title: str
-    span: str
-    score: float
+    stance: Optional[str] = None
+    weight: Optional[float] = None
+    citation_count: Optional[int] = None
 
 
-class PaperStanceSchema(BaseModel):
-    paper_id: str
-    stance: str
-    strength: str
-    evidence: str
-    rationale: str
-
-
-class EvidenceBreakdown(BaseModel):
-    support: int
-    contradict: int
-    neutral: int
-    dominant_stance: str
+class Methodology(BaseModel):
+    papers_analyzed: int
+    supporting_papers: int
+    contradicting_papers: int
+    neutral_papers: int
 
 
 class QueryAnalysisSchema(BaseModel):
@@ -49,11 +51,24 @@ class QueryAnalysisSchema(BaseModel):
 class AnswerResponse(BaseModel):
     q: str
     conclusion: str
+    consensus_label: str
+    dominant_stance: str
     confidence: str
+    confidence_numeric: float
     confidence_score: float
+    consensus_score: float
+    contradictions_present: bool
+    contradiction_summary: Optional[str] = None
+    supporting_evidence: List[EvidenceItem] = []
+    contradicting_evidence: List[EvidenceItem] = []
+    neutral_evidence: List[EvidenceItem] = []
+    top_papers: List[TopPaper] = []
+    methodology: Methodology
     confidence_factors: dict
-    citations: List[Citation]
-    evidences: List[Evidence] = []
-    paper_stances: List[PaperStanceSchema] = []
-    evidence_breakdown: EvidenceBreakdown
-    query_analysis: QueryAnalysisSchema
+    citations: List[Citation] = []
+    query_analysis: Optional[QueryAnalysisSchema] = None
+
+    # Campos legacy opcionales (compatibilidad hacia atrás)
+    evidences: Optional[List[Any]] = None
+    paper_stances: Optional[List[Any]] = None
+    evidence_breakdown: Optional[Any] = None
