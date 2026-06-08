@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from ai_consensus_clone.core.reasoning.answer import AnswerService
-from ai_consensus_clone.core.retrieval.bm25 import BM25Search
-from ai_consensus_clone.core.retrieval.online import OnlinePaperRetriever
+from axiom_ai.core.reasoning.answer import AnswerService
+from axiom_ai.core.retrieval.bm25 import BM25Search
+from axiom_ai.core.retrieval.online import OnlinePaperRetriever
 
 
 def print_hits(title: str, hits: list[dict], limit: int = 10) -> None:
@@ -77,7 +77,7 @@ def main() -> None:
     print_hits("LOCAL RAW HITS", local_raw, limit=10)
 
     # 2) hits locales rerankeados (heurístico)
-    from ai_consensus_clone.core.ranking.reranker import rerank_hits
+    from axiom_ai.core.ranking.reranker import rerank_hits
     local_after_rerank = rerank_hits(query, local_raw)
     print_hits("LOCAL RERANKED HITS (HEURISTIC)", local_after_rerank, limit=10)
 

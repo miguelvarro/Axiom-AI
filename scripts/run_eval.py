@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pprint import pprint
 
-from ai_consensus_clone.core.retrieval.bm25 import BM25Search
-from ai_consensus_clone.core.evaluation.metrics import run_eval, summarize_eval
+from axiom_ai.core.retrieval.bm25 import BM25Search
+from axiom_ai.core.evaluation.metrics import run_eval, summarize_eval
 
 
 def main():

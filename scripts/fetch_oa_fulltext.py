@@ -3,8 +3,8 @@ import orjson
 
 from typing import Any, Dict, Iterable
 
-from ai_consensus_clone.core.domain.paper import Paper
-from ai_consensus_clone.core.enrichment.fulltext import FullTextEnricher
+from axiom_ai.core.domain.paper import Paper
+from axiom_ai.core.enrichment.fulltext import FullTextEnricher
 
 
 def iter_jsonl(path: str) -> Iterable[Dict[str, Any]]:

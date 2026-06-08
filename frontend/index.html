@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AI Consensus</title>
+  <title>Axiom AI</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -108,7 +108,7 @@
             <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2z"/>
           </svg>
         </div>
-        <span class="font-semibold text-slate-800 text-lg">AI Consensus</span>
+        <span class="font-semibold text-slate-800 text-lg">Axiom AI</span>
         <span class="text-xs text-slate-400 ml-1 font-normal">Research Assistant</span>
       </div>
       <a href="http://localhost:8000/docs" target="_blank"
@@ -299,7 +299,7 @@
 
   <!-- FOOTER -->
   <footer class="mt-16 py-6 border-t border-slate-100 text-center text-xs text-slate-400">
-    AI Consensus Clone · Built with FastAPI + BM25 + LLM reasoning
+    Axiom AI · Built with FastAPI + LLM reasoning
   </footer>
 
 <script>
@@ -371,6 +371,9 @@ function paperCard(p) {
       </div>
       <div class="flex items-center gap-3 mt-2 flex-wrap">
         ${doi}
+        <span class="text-xs text-slate-400">
+          Citations: ${p.citation_count}
+        </span>
         ${weight}
       </div>
     </div>`;
@@ -542,7 +545,7 @@ async function handleSearch() {
     const res = await fetch(`${API_BASE}/answer`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ q, k: 5 }),
+      body: JSON.stringify({ q, k: 10 }),
     });
 
     stopLoadingAnimation();
@@ -559,7 +562,7 @@ async function handleSearch() {
   } catch (e) {
     stopLoadingAnimation();
     if (e.name === 'TypeError' && e.message.includes('fetch')) {
-      showError('Cannot connect to API at localhost:8000. Make sure your FastAPI server is running with: uvicorn ai_consensus_clone.app.api.main:app --reload');
+      showError('Cannot connect to API at localhost:8000. Make sure your FastAPI server is running with: uvicorn axiom_ai.app.api.main:app --reload');
     } else {
       showError(`Unexpected error: ${e.message}`);
     }

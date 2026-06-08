@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ai_consensus_clone.core.retrieval.online import OnlinePaperRetriever
+from axiom_ai.core.retrieval.online import OnlinePaperRetriever
 
 
 def main():

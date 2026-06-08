@@ -1,4 +1,3 @@
--e git+https://github.com/miguelvarro/consensus-clone.git@cef8d0d8c24a6ce5739aae2cb11a443d4ec823de#egg=ai_consensus_clone
 altair==6.0.0
 annotated-doc==0.0.4
 annotated-types==0.7.0

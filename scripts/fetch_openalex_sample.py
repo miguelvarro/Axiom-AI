@@ -1,7 +1,7 @@
 import argparse
 import orjson
-from ai_consensus_clone.utils.text import clean_text
-from ai_consensus_clone.core.ingestion.connectors.openalex import (
+from axiom_ai.utils.text import clean_text
+from axiom_ai.core.ingestion.connectors.openalex import (
     OpenAlexClient, extract_doi, extract_oa_landing_url, extract_oa_pdf_url, extract_abstract
 )
 
